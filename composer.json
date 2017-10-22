@@ -1,6 +1,6 @@
 {
-    "name": "benallfree/laravel-stapler-images",
-    "description": "Extend laravel-stapler with an Image model.",
+    "name": "benallfree/laravel-easy-attachments",
+    "description": "Easy Eloquent file and image attachments for Laravel",
     "keywords": ["laravel", "stapler", "image", "attachment"],
     "license": "MIT",
     "authors": [
@@ -10,14 +10,14 @@
         }
     ],
     "require": {
-        "php": ">=5.5.0",
+        "php": ">=7.0.0",
         "laravel/framework": "5.*",
         "illuminate/support": "5.*",
         "codesleeve/laravel-stapler": "1.0.*"
     },
     "autoload": {
         "psr-4": {
-            "BenAllfree\\": "src/"
+            "BenAllfree\\LaravelEasyAttachments\\": "src/"
         }
     },
     "minimum-stability": "dev"

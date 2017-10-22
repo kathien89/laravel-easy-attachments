@@ -1,35 +1,39 @@
-# Laravel Stapler Images
+# Laravel Easy Attachments
 
-This Laravel 5 package builds upon [codesleeve/laravel-stapler](https://github.com/CodeSleeve/laravel-stapler) and takes a different approach to attachment storage by storing attachments in a single table. Besides this normalized approach to attachment storage, it also handles images and image sizes.
+Laravel Easy Attachments makes it attaching images and files to Eloquent models a breeze. When an image is attached to a model, Laravel Easy Attachments will pre-generate multiple image sizes, optionally cropping or maintaining aspect ratio, and store them wherever you want - even on a cloud provider like S3. 
 
-There are several benefits to storing your attachments in a single table:
+Attachments are managed in a single database table and duplicate attachments are handled efficiently.
 
-* Easier mainteannce - no additional migrations needed when new attachments are added
-* Utilities and Laravel commands to handle attachments do not need to know specific column mames
-* Normalized data is more organized and searchable
-* Avoids duplication of images
+Laravel Easy attachments stands on the shoulders of giants. Gratitude in particular to [codesleeve/laravel-stapler](https://github.com/CodeSleeve/laravel-stapler) and [codesleeve/stapler](https://github.com/CodeSleeve/stapler).
+
+## Features
+
+* Easily attach images to Eloquent models `$user->avatarImage->setSourceUrl('http://img.wennermedia.com/480-width/rick-astley-fafdb413-f264-4d61-8671-6c93bda94591.jpg')`
+* Automatically generate various thumbnail sizes so you can do things like: `$user->avatarImage->urlFor('thumb')` and `$user->avatarImage->urlFor('large')`
+* All attachments stored in a single, normalized table
+* Background queue support like `$user->avatarImage->queue('...url...')`
 
 ## Setup
 
 Install
 
-    composer require benallfree/laravel-stapler-images
+    composer require benallfree/laravel-easy-attachments
 
 Add the service providers to `config/app.php`
 
-    BenAllfree\LaravelStaplerImages\LaravelStaplerImagesServiceProvider::class,
+    BenAllfree\LaravelEasyAttachments\ServiceProvider::class,
     Codesleeve\LaravelStapler\Providers\L5ServiceProvider::class,
 
 Optionally add an alias for the `\Image` and `\Attachment` classes in `config/app.php`
 
-    'Image' => BenAllfree\LaravelStaplerImages\Image::class,
-    'Attachment' => BenAllfree\LaravelStaplerImages\Attachment::class,
+    'Image' => BenAllfree\LaravelEasyAttachments\Image::class,
+    'Attachment' => BenAllfree\LaravelEasyAttachments\Attachment::class,
 
 Publish the config
 
-    php artisan vendor:publish
+    php artisan vendor:publish --tag=laravel-easy-attachments
 
-Take a look at the config files in `config/laravel-stapler`. If you're not familiar with the config files, see the [basic Stapler config docs](https://github.com/CodeSleeve/stapler/blob/master/docs/configuration.md). I add `images.php` where you can control settings for this package. In particular, if you want to adjust the name of the table and the sizes of images created, you can do it here.
+Take a look at the config files in `config/laravel-stapler`. If you're not familiar with the config files, see the [basic Stapler config docs](https://github.com/CodeSleeve/stapler/blob/master/docs/configuration.md). Look for `easy-attachments.php` where you can control settings for this package. In particular, if you want to adjust the name of the table and the sizes of images created, you can do it here. Because Laravel Easy Attachments relies upon Laravel Stapler for other settings, it made sense to store our config file with Laravel Stapler.
 
 I like this setting for `config/laravel-stapler/filesystem.php`
 
@@ -49,12 +53,10 @@ First, create a migration. In this case, let's do a simple `belongsTo` relations
       $table->integer('avatar_image_id');
     });
 
-I named it `avatar_image_id` because we want the field to be treated as an `BenAllfree\LaravelStaplerImages\Image` object so image processing happens. This gives us extra features like processing various image sizes. If we didn't need that, we could have named it `avatar_file_id` and it would be a `BenAllfree\LaravelStaplerImages\Attachment` instead.
-
-Now, add it to the User table
+Now here's the magic: add `ImageAttachmentTrait` to the `User` model. 
 
 
-    use BenAllfree\LaravelStaplerImages\AttachmentTrait;
+    use BenAllfree\LaravelEasyAttachments\AttachmentTrait;
     
     class User
     {
@@ -124,7 +126,21 @@ Likewise, a database field `<name>_image_id` will do the same thing for `Image`,
   
 ## Caching and Performance
 
-By default, `Image::from_url($url)` will check `$url` against the `original_file_name` column in the images table and will only fetch the image the first time it has to. If you want to force it, use `from_url($url, true)`.
+By default, `Image::fromUrl($url)` will check `$url` against the `original_file_name` column in the images table and will only fetch the image the first time it has to. If you want to force it, use `fromUrl($url, true)`.
+
+## Using Queues and Background Workers
+
+
+## Subclassing `Image` and `Attachment`
+
+If you want to subclass `Image` and `Attachment`, publish resources and then modify `config/laravel-stapler/images.php`:
+
+```
+  'image_class'=>\BenAllfree\LaravelEasyAttachments\Image::class,
+  'attachment_class'=>\BenAllfree\LaravelEasyAttachments\Attachment::class,
+```
+
+`laravel-stapler-iamges` will use the classes you specify in this config section. Be sure to inherit from these base classes.
 
 ## Custom Image Sizes
 
@@ -172,8 +188,8 @@ Then, create a route like this and add whatever security you need:
 
 If you have a pivot table or some other need to work directly with attachments:
 
-    $image = Image::from_url($url);
-    $att = Attachment::from_url($url);
+    $image = Image::fromUrl($url);
+    $att = Attachment::fromUrl($url);
 
 ## Integrating with Laravel Administrator
 
@@ -221,7 +237,7 @@ Configure `config/administrator/<your model>.php` as follows:
         'avatar_image_la'=>[
           'title'=>'Avatar',
           'type'=>'image',
-          'location'=>config('laravel-stapler.images.la_path').'/',
+          'location'=>config('laravel-stapler.easy-attachments.la_path').'/',
         ]
         
       ),
