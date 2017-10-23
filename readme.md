@@ -1,6 +1,6 @@
 # Laravel Easy Attachments
 
-Laravel Easy Attachments makes it attaching images and files to Eloquent models a breeze. When an image is attached to a model, Laravel Easy Attachments will pre-generate multiple image sizes, optionally cropping or maintaining aspect ratio, and store them wherever you want - even on a cloud provider like S3. 
+Laravel Easy Attachments makes attaching images and files to Eloquent models a breeze. Laravel Easy Attachments recognizes both regular document attachments and images. When images are attached, Laravel Easy Attachments will pre-generate multiple image preview sizes, optionally cropping or maintaining aspect ratio, and store them wherever you want - even on a cloud provider like S3. Image previews help you to serve the right size image for your use case. 
 
 Attachments are managed in a single database table and duplicate attachments are handled efficiently.
 
@@ -8,12 +8,13 @@ Laravel Easy attachments stands on the shoulders of giants. Gratitude in particu
 
 ## Features
 
-* Easily attach images to Eloquent models `$user->avatarImage->setSourceUrl('http://img.wennermedia.com/480-width/rick-astley-fafdb413-f264-4d61-8671-6c93bda94591.jpg')`
-* Automatically generate various thumbnail sizes so you can do things like: `$user->avatarImage->urlFor('thumb')` and `$user->avatarImage->urlFor('large')`
-* All attachments stored in a single, normalized table
-* Background queue support like `$user->avatarImage->queue('...url...')`
+* Easily attach images to Eloquent models 
+* Automatically generate various image preview sizes sizes
+* All attachments stored in a single, normalized table with duplicate detection
+* Background queue support
+* Eloquent magic methods to make working with attachments so easy you'll weep tears of joy
 
-## Setup
+## Installation
 
 Install
 
@@ -24,60 +25,71 @@ Add the service providers to `config/app.php`
     BenAllfree\LaravelEasyAttachments\ServiceProvider::class,
     Codesleeve\LaravelStapler\Providers\L5ServiceProvider::class,
 
-Optionally add an alias for the `\Image` and `\Attachment` classes in `config/app.php`
-
-    'Image' => BenAllfree\LaravelEasyAttachments\Image::class,
-    'Attachment' => BenAllfree\LaravelEasyAttachments\Attachment::class,
-
-Publish the config
-
-    php artisan vendor:publish --tag=laravel-easy-attachments
-
-Take a look at the config files in `config/laravel-stapler`. If you're not familiar with the config files, see the [basic Stapler config docs](https://github.com/CodeSleeve/stapler/blob/master/docs/configuration.md). Look for `easy-attachments.php` where you can control settings for this package. In particular, if you want to adjust the name of the table and the sizes of images created, you can do it here. Because Laravel Easy Attachments relies upon Laravel Stapler for other settings, it made sense to store our config file with Laravel Stapler.
-
-I like this setting for `config/laravel-stapler/filesystem.php`
-
-    'url' => '/i/:id_partition/:style/:filename',
-
-Don't forget to migrate:
+Run migrations
 
     php artisan migrate
 
-## Basic Usage
+## Quickstart
 
-Super easy. Let's add an avatar to our `User` model.
+Suppose your `User` model has an `avatar_id` column in it.
 
-First, create a migration. In this case, let's do a simple `belongsTo` relationship.
+First, add an `Attachable` to your model:
 
-    Schema::table('users', function (Blueprint $table) {
-      $table->integer('avatar_image_id');
-    });
-
-Now here's the magic: add `ImageAttachmentTrait` to the `User` model. 
-
-
-    use BenAllfree\LaravelEasyAttachments\AttachmentTrait;
+    use BenAllfree\LaravelEasyAttachments\Attachable;
     
     class User
     {
-      use AttachmentTrait;
+      use Attachable;
     }
 
-Great. Now we can rock and roll. Saving will generate and save all the images on the spot.
+Now, you can attach documents and images:
 
-    // Create an image
-    $url = "http://www.gravatar.com/avatar/71137e6e1c94b72f162da3262b700017.png";
-    $user->avatar_image_path = $url;
-    $user->save();
+    $user->avatar = '/path/to/avatar.jpg';
 
-The `$url` can be a file path too.
+And get the URL to any image size (by default, `tiny`, `admin`, `thumb`, `medium`, `featured`, `large`)
 
-Next, we can recall a processed image URL. The MIME type is always `image/jpg` for these.
+    echo $user->avatar->url('thumb');
 
-    // Use an image
-    echo $user->avatar_image->url('thumb');
+Have fun!
 
-The following sizes exist by default:
+## Basic Usage
+
+### Attaching a Document
+
+Suppose we have a file, `/tmp/foo.doc`. When we create an attachment, the file will automatically be copied into a permanent storage location. `AttachmentFactory` will recognize the document type and return an `Attachment` object.
+
+    use Illuminate\Http\File;
+    use BenAllfree\LaravelEasyAttachments\AttachmentFactory;
+    
+    $file = new File('/tmp/foo.doc');
+    
+    // Either of these will work
+    $att = AttachmentFactory::create($file);
+    $att = AttachmentFactory::create($file->path());
+    
+    echo $att->id;          // The database ID of this attachment - use it however you like
+    echo $att->url();       // Public URL to the attachment
+    echo $att->path();      // Private file system path to the attachment
+
+### Attaching an Image
+
+Suppose we have a file, `/tmp/foo.jpg`. `AttachmentFactory` will recognize the document type and return an `Image` object, which is almost the same as `Attachment`, except that it knows how to generate multiple image sizes, cache them, and retrieve them.
+
+    use Illuminate\Http\File;
+    use BenAllfree\LaravelEasyAttachments\AttachmentFactory;
+    
+    $file = new File('/tmp/foo.jpg');
+    
+    // Either of these will work
+    $att = AttachmentFactory::create($file);
+    $att = AttachmentFactory::create($file->path());
+    
+    echo $att->id;          // The database ID of this attachment - use it however you like
+    echo $att->url('thumb');       // Public URL to the thumb-sized version of the image
+    echo $att->url('large');       // Public URL to the large-sized version of the image
+    echo $att->path('thumb');      // Private file system path to the thumb-sized version of the image
+
+The following sizes exist by default, from `config/easy-attachments.php`:
 
     'large' => '640x640#',
     'featured' => '585x585#',
@@ -86,65 +98,178 @@ The following sizes exist by default:
     'admin' => '100x100#',
     'tiny' => '75x75#',
 
+### Attaching a URL
+
+URLs work the same way, only they are fetched first.
+
+    use BenAllfree\LaravelEasyAttachments\AttachmentFactory;
+    
+    $url = "http://img.wennermedia.com/480-width/rick-astley-fafdb413-f264-4d61-8671-6c93bda94591.jpg');
+    
+    // It will know this is an image, fetch it, generate all image preview sizes, and return the proper attachment type
+    $att = AttachmentFactory::create($url);
+    
+    echo $att->id;          // The database ID of this attachment - use it however you like
+    echo $att->url('thumb');       // Public URL to the thumb-sized version of the image
+    echo $att->url('large');       // Public URL to the large-sized version of the image
+    echo $att->path('thumb');      // Private file system path to the thumb-sized version of the image
+
+### Using Queues
+
+URLs can take a while to download. Image attachments need to generate multiple preview sizes, and that can take time. If you don't need the data immediately, and you don't mind waiting, you can do it this way:
+
+    use BenAllfree\LaravelEasyAttachments\AttachmentFactory;
+    
+    $url = "http://img.wennermedia.com/480-width/rick-astley-fafdb413-f264-4d61-8671-6c93bda94591.jpg');
+    
+    // AttachmentFactory will give you back an Attachment or Image object using its best guess, 
+    // but it won't process it immediately. Instead, it will be added to the worker queue. If 
+    // you give it a file path, it will expect that file path to be accessible from the queue,
+    // so be careful about that.
+    $att = AttachmentFactory::queue($url);
+    
+    echo $att->id;              // The database ID is all we have
+    echo $att->url('thumb');    // This will return NULL because it has not been processed yet
+    echo $att->path('thumb');   // This will return NULL because it has not been processed yet
+
+### Attaching to a Model (the hard way and the easy way)
+
+You can create attachments using the code above, that's super fun. But know what's even fun'r? Using some Eloquent model magic. 
+
+Let's add an `avatar` and `resume` to our `User` model.
+
+First, create a migration. In this case, let's do a simple `belongsTo` relationship.
+
+    Schema::table('users', function (Blueprint $table) {
+      $table->integer('avatar_id');
+      $table->integer('resume_id');
+    });
+
+#### The Hard Way
+
+You can do it this way if you hate yourself:
+
+    class User
+    {
+       function resume()
+       {
+          return $this->belongsTo(\Attachment::class, 'resume_id');
+       }
+       
+       function avatar()
+       {
+          return $this->belongsTo(\Image::class, 'avatar_id');
+       }
+    }
+    
+    $resume = AttachmentFactory::create('/path/to/resume.doc');
+    $user->resume_id = $resume->id;
+    $avatar = AttachmentFactory::create('/path/to/avatar.jpg');
+    $user->avatar_id = $resume->id;
+    $user->save();
+    
+    echo $user->resume->url();
+    echo $user->avatar->url('thumb');
+
+#### The Easy Way
+
+But love yourself. Add `Attachable` to the `User` model. Things will get automatically processed and saved on the spot.
+
+    use BenAllfree\LaravelEasyAttachments\Attachable;
+    
+    class User
+    {
+      use Attachable;
+    }
+    
+    $user->resume = '/path/to/resume.doc';
+    $user->avatar = '/path/to/avatar.jpg';
+    
+    echo $user->resume->url();
+    echo $user->avatar->url('thumb');
+
+#### The Easy AND Fast Way
+
+If you want to delay/offload the processing while still using magical methods, here's how to do it:
+
+    $user->resume = AttachmentFactory::queue('/path/to/resume.doc');
+    $user->avatar = AttachmentFactory::queue('/path/to/avatar.jpg');
+    
+
+    echo $user->resume->id;           // Will work
+    echo $user->avatar->id;           // Will work
+    echo $user->resume->url();        // Won't work yet!
+    echo $user->avatar->url('thumb'); // Won't work yet!
+
+
 ## Forms and Input
 
-Given a field named `avatar_image` like above...
+Given a field named `avatar` like above...
 
-### In the view
+In the view:
 
-```
-{!! Form::open(['method'=>'post', 'files'=>true]) !!}
-{!! Form::file('avatar_image') !!}
-{!! Form::submit('Update') !!}
-{!! Form ::close() !!}
-```
+    {!! Form::open(['method'=>'post', 'files'=>true]) !!}
+    {!! Form::file('avatar_image') !!}
+    {!! Form::submit('Update') !!}
+    {!! Form ::close() !!}
 
 ### In the controller
 
-```
-function do_postback(Request $r)
-{
-  $u = Auth::user();
-  $u->update($r->input());
-  $u->update($r->files()); // This is the important one
-}
-```
+    function do_postback(Request $r)
+    {
+      $u = Auth::user();
+      $u->update($r->input());
+      $u->update($r->files()); // This is the important one
+    }
 
-## Magic Getters and Setters
+## Advanced Configuration
 
-Given a database field `<name>_file_id`
+Eject the config files:
 
-`<name>_file` - A getter that returns an `Attachment` object for the given underlying ID
-`<name>_file_path()` - A setter mutator that accepts a file path or URL and creates an `Attachment` object from it. If it can't find the file with the path specified, it will look in the `la_path` config setting, then in `la_path()`, then in `root_path()`.
-  
-Likewise, a database field `<name>_image_id` will do the same thing for `Image`, except it will add image processing when the objects are created.
+    php artisan vendor:publish --tag=laravel-easy-attachments
 
-`<name>_image` - A getter that returns an `Image` object for the given underlying ID
-`<name>_image_path()` - A setter mutator that accepts a file path or URL and creates an `Attachment` object from it. If it can't find the file with the path specified, it will look in the `la_path` config setting, then in `la_path()`, then in `root_path()`.
-  
-`Image` is NOT a subclass of `Attachment`, so these should not be used interchangeably. 
-  
+`config/easy-attachments.php` is where you control settings for this package.
+
+`sizes` controls what image sizes are generated when you attach an image. Including a '#' at the end of the dimension will cause it to zoom and crop on center, guaranteeing that the image size is exactly what you specify. Omitting the '#' will maintain aspect ratio, making the image as big as possible while still fitting in the dimensions specified.
+
+    $sizes = [
+      'large' => '640x640#',
+      'featured' => '585x585#',
+      'medium' => '400x400#',
+      'thumb' => '180x180#',
+      'admin' => '100x100#',
+      'tiny' => '75x75#',
+    ];
+
+
+`table_name` controls the name of the table used to store the attachments. If you set this before running migrations, the migrations will honor this table name.
+
+`la_path` is the file path where Laravel Administrator file sare stored. See the Laravel Administrator section for more details about how to use this.
+
+`image_class` and `attachment_class` control what class is instantiated for images and plain attachments. If you override the default `Image` and `Attachment` classes and want Laravel Easy Images to instantiate objects using your superclasses, specify them here.
+
+Optionally add an alias for the `\Image` and `\Attachment` classes in `config/app.php`
+
+    'Image' => BenAllfree\LaravelEasyAttachments\Image::class,
+    'Attachment' => BenAllfree\LaravelEasyAttachments\Attachment::class,
+
+## Memory
+
+Image processing can take a significant amount of memory, more the PHP is normally configured to use.
+
+If you are processing images inline (during the web request), you will probably need to modify your memory limit in `php.ini`:
+
+    memory_limit=8096M 
+
+However, we recommend that you use Laravel Queues to process your images out of band. In that case, you'll need to make sure your worker processes, which run using the PHP CLI, have sufficient memory. The PHP CLI typically uses a different `php.ini` than the PHP web process. To find it:
+
+    $ php -i | grep ini
+    ...
+    Loaded Configuration File => /Applications/MAMP/bin/php/php7.1.1/conf/php.ini
+
 ## Caching and Performance
 
 By default, `Image::fromUrl($url)` will check `$url` against the `original_file_name` column in the images table and will only fetch the image the first time it has to. If you want to force it, use `fromUrl($url, true)`.
-
-## Using Queues and Background Workers
-
-
-## Subclassing `Image` and `Attachment`
-
-If you want to subclass `Image` and `Attachment`, publish resources and then modify `config/laravel-stapler/images.php`:
-
-```
-  'image_class'=>\BenAllfree\LaravelEasyAttachments\Image::class,
-  'attachment_class'=>\BenAllfree\LaravelEasyAttachments\Attachment::class,
-```
-
-`laravel-stapler-iamges` will use the classes you specify in this config section. Be sure to inherit from these base classes.
-
-## Custom Image Sizes
-
-No problem, just go into `config/laravel-stapler-images.php` and make whatever sizes you want.
 
 ## Reprocessing Images
 
@@ -160,7 +285,7 @@ Create the following file:
 
     /storage/uploads/.gitkeep
 
-In `config/laravel-stapler/filesystem.php` to change where the images are stored (outside the webroot):
+Eject Laravel Stapler configs. In `config/laravel-stapler/filesystem.php` to change where the images are stored (outside the webroot):
 
 	'path' => ':app_root/storage/uploads:url',
 
@@ -172,7 +297,7 @@ Then, create a route like this and add whatever security you need:
       {
         App::abort(404);
       }
-  
+      
       $response = Response::make(
          File::get($image->image->path($size)), 
          200
@@ -184,24 +309,17 @@ Then, create a route like this and add whatever security you need:
       return $response;
     });
 
-## Advanced Usage (Working directly with attachments)
-
-If you have a pivot table or some other need to work directly with attachments:
-
-    $image = Image::fromUrl($url);
-    $att = Attachment::fromUrl($url);
-
 ## Integrating with Laravel Administrator
 
 Do you love [Laravel Administrator](https://github.com/FrozenNode/Laravel-Administrator) as much as I do? Sweet. Here's how you do it.
 
 First, familiarize yourself with the `[location](http://administrator.frozennode.com/docs/field-type-image)` attribute of upload fields in Laravel Administrator.
 
-### Step 1: Choose ONE location where Laravel Administrator will upload your files.
+**Step 1: Choose ONE location where Laravel Administrator will upload your files.**
 
-In `config/laravel-stapler/images.php`, there is an `la_path` that can be configured. The default is fine, but if you want to change it you may. Use the same location for ALL models in Laravel Administrator. Laravel Stapler Images will look in this config path for any uploads being saved. I suggest adding a `.gitkeep` to the path.
+In `config/images.php`, there is an `la_path` that can be configured. The default is fine, but if you want to change it you may. Use the same location for ALL models in Laravel Administrator. Laravel Stapler Images will look in this config path for any uploads being saved. I suggest adding a `.gitkeep` to the path.
 
-### Step 2: Configure your Laravel Administrator model, being careful to use the `config()` path you chose in Step 1.
+**Step 2: Configure your Laravel Administrator model, being careful to use the `config()` path you chose in Step 1.**
 
 Configure `config/administrator/<your model>.php` as follows:
   
@@ -234,37 +352,52 @@ Configure `config/administrator/<your model>.php` as follows:
        * The editable fields
        */
       'edit_fields' => array(
-        'avatar_image_la'=>[
+        'avatar_la'=>[
           'title'=>'Avatar',
           'type'=>'image',
-          'location'=>config('laravel-stapler.easy-attachments.la_path').'/',
+          'location'=>config('easy-attachments.la_path').'/',
         ]
         
       ),
       
     );
 
-### Step 3: Add extra JSON attributes to your Eloquent model via `$appends`.
+**Step 3: Add extra JSON attributes to your Eloquent model via `$appends`.**
 
-Recall our User model above contained an `avatar_image_id` field, and that we can use `$user->avatar_image` to access it.
+Recall our User model above contained an `avatar_id` field, and that we can use `$user->avatar` to access it.
 
     class User
     {
-      use AttachmentTrait;
+      use Attachable;
     }
 
 To make sure Laravel Administrator sees it, we must modify the model just a bit:
 
     class User
     {
-      use AttachmentTrait;
+      use Attachable;
       
-      protected $appends = ['avatar_image_la'];
+      protected $appends = ['avatar_la'].;
     }
 
 The `_la` suffix indicates that this is a Laravel Administrator file attachment field. 
 
 That's it! Now you have images from Laravel Administrator!
+
+## Advanced Configuration of Laravel Stapler
+
+You may find yourself wanting more fine-grained control over how images are stored. For this, you must modify the underlying Laravel Stapler settings directly. 
+
+First, eject the Laravel Stapler config:
+
+    php artisan vendor:publish --provider="Codesleeve\LaravelStapler\Providers\L5ServiceProvider"
+
+Take a look at the config files in `config/laravel-stapler`. If you're not familiar with the config files, see the [basic Stapler config docs](https://github.com/CodeSleeve/stapler/blob/master/docs/configuration.md).
+
+
+I like this setting for `config/larave-stapler/filesystem.php`
+
+    'url' => '/i/:id_partition/:style/:filename',
 
 ## Workarounds and bugfixes
 

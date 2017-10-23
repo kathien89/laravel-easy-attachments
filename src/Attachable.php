@@ -1,7 +1,7 @@
 <?php
 
 namespace BenAllfree\LaravelEasyAttachments;
-trait AttachmentTrait
+trait Attachable
 {
   public function hasSetMutator($key)
   {
@@ -15,6 +15,7 @@ trait AttachmentTrait
   
   public function setAttribute($key, $value)
   {
+    dd($key);
     preg_match('/(.*)_(image|file)(_la)?$/', $key, $matches);
     if(count($matches)>0)
     {
@@ -54,11 +55,11 @@ trait AttachmentTrait
       switch($field_type)
       {
         case 'image':
-          $Image = config('laravel-stapler-images.image_class');
+          $Image = config('easy-attachments.image_class');
           $i = $Image::fromUrl($value);
           break;
         case 'file':
-          $Attachment = config('laravel-stapler-images.attachment_class');
+          $Attachment = config('easy-attachments.attachment_class');
           $i = $Attachment::fromUrl($value);
           $i = Attachment::fromUrl($value);
           break;
@@ -101,11 +102,11 @@ trait AttachmentTrait
       switch($field_type)
       {
         case 'image':
-          $Image = config('laravel-stapler-images.image_class');
+          $Image = config('easy-attachments.image_class');
           $obj = $Image::find($this->$field_name);
           break;
         case 'file':
-          $Attachment = config('laravel-stapler-images.attachment_class');
+          $Attachment = config('easy-attachments.attachment_class');
           $obj = Attachment::find($this->$field_name);
           break;
         default:
@@ -141,11 +142,11 @@ trait AttachmentTrait
     switch($field_type)
     {
       case 'image':
-        $Image = config('laravel-stapler-images.image_class');
-        return $this->belongsTo($Image::class, $field_name);
+        $Image = config('easy-attachments.image_class');
+        return $this->belongsTo($Image, $field_name);
       case 'file':
-        $Attachment = config('laravel-stapler-images.attachment_class');
-        return $this->belongsTo($Attachment::class, $field_name);
+        $Attachment = config('easy-attachments.attachment_class');
+        return $this->belongsTo($Attachment, $field_name);
       default:
         throw new \Exception("Unrecognized attachment type {$field_type}");
     }

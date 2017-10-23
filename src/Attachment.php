@@ -24,7 +24,7 @@ class Attachment  extends \Eloquent implements StaplerableInterface
   
   function getTable()
   {
-    return config('laravel-stapler.easy-attachments.table_name');
+    return config('easy-attachments.table_name');
   }
   
   public function __construct(array $attributes = array()) {

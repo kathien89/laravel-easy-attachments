@@ -3,14 +3,19 @@ namespace BenAllfree\LaravelEasyAttachments;
 
 use Codesleeve\Stapler\ORM\StaplerableInterface;
 use Codesleeve\Stapler\ORM\EloquentTrait;
+use BenAllfree\LaravelEasyAttachments\Jobs\ProcessImageJob;
 
-class Image  extends \Illuminate\Database\Eloquent\Model implements StaplerableInterface 
+class Image  extends \Eloquent implements StaplerableInterface 
 {
-  use EloquentTrait;
+  use EloquentTrait {
+    boot as attachmentBoot;
+  }
+  
+  protected $fillable = ['original_file_name'];
 
-  public static function createImageForUrl($url)
+  public static function createImageFromUrl($url)
   {
-    $Image = config('laravel-stapler.easy-images.image_class');
+    $Image = config('easy-attachments.image_class');
     $i = $Image::whereOriginalFileName($url)->first();
     if(!$i)
     {
@@ -18,18 +23,23 @@ class Image  extends \Illuminate\Database\Eloquent\Model implements StaplerableI
     }
     $i->original_file_name = $url;
     $i->save();
+    return $i;
   }
 
   public static function queueFromUrl($url)
   {
-    $i = self::createImageForUrl($url);
-    FetchImageJob::dispatch($i);
+    
+    $i = self::createImageFromUrl($url);
+    if($i->wasRecentlyCreated)
+    {
+      ProcessImageJob::dispatch($i);
+    }
     return $i;
   }
   
   public static function fromUrl($url)
   {
-    $i = self::createImageForUrl($url);
+    $i = self::createImageFromUrl($url);
     $i->att = $url;
     $i->save();
     return $i;
@@ -37,7 +47,7 @@ class Image  extends \Illuminate\Database\Eloquent\Model implements StaplerableI
   
   function getTable()
   {
-    return config('laravel-stapler.easy-attachments.table_name');
+    return config('easy-attachments.table_name');
   }
   
   public function __construct(array $attributes = array()) {
@@ -70,7 +80,7 @@ class Image  extends \Illuminate\Database\Eloquent\Model implements StaplerableI
   
   public static function styles()
   {
-    $styles = config('laravel-stapler.easy-attachments.sizes');
+    $styles = config('easy-attachments.sizes');
     if(!$styles || count($styles)==0)
     {
       throw new \Exception("No sizes defined for Image class. Are you sure you registered the service provider?");
@@ -88,8 +98,33 @@ class Image  extends \Illuminate\Database\Eloquent\Model implements StaplerableI
     $this->save();
     return $ret;
   }
+  
+  static function queue($any)
+  {
+    $Image = config('easy-attachments.image_class');
+    if(is_string($any))
+    {
+      $i = $Image::queueFromUrl($any);
+    }
+  }
+  
+  public static function boot()
+  {
+    parent::boot();
+    static::attachmentBoot();
+    static::saving(function($obj) {
+      $obj->sizes_md5 = Image::style_md5();
+    });
+    static::saved(function($obj) {
+      if(
+        config('easy-attachments.preserve_original_files') && 
+        file_exists(dirname($obj->original_file_name)) &&
+        !file_exists($obj->original_file_name)
+      )
+      {
+        @copy($obj->att->path('original'), $obj->original_file_name);
+      }
+    });
+  }
 }
 
-Image::saving(function($obj) {
-  $obj->sizes_md5 = Image::style_md5();
-});

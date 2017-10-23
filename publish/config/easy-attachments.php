@@ -26,7 +26,7 @@ return [
   'table_name'=>'attachments',
   'la_path'=>storage_path('admin/uploads'),
   'sizes'=>$sizes,
-  'use_queue'=>false,
+  'preserve_original_files'=>true,
   'image_class'=>\BenAllfree\LaravelEasyAttachments\Image::class,
   'attachment_class'=>\BenAllfree\LaravelEasyAttachments\Attachment::class,
 ];

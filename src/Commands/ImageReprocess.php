@@ -43,7 +43,7 @@ class ImageReprocess extends Command {
    */
   public function fire()
   {
-    $Image = config('laravel-stapler.easy-images.image_class');
+    $Image = config('easy-attachments.image_class');
     $Image::query()->chunk(50, function($images) {
       foreach($images as $i)
       {
@@ -51,7 +51,7 @@ class ImageReprocess extends Command {
         echo("Processing {$i->url()}\n");
         try
         {
-          if(config('laravel-stapler.easy-attachments.use_queue'))
+          if(config('easy-attachments.use_queue'))
           {
             ReprocessImageJob::dispatch($i);
           } else {

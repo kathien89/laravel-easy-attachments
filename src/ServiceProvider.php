@@ -20,11 +20,11 @@ class ServiceProvider extends \Illuminate\Support\ServiceProvider {
 	{
     if ($this->app->runningInConsole()) {
       $this->publishes([
-        __DIR__.'/../publish/config/easy-attachments.php' => config_path('laravel-stapler/easy-attachments.php'),
+        __DIR__.'/../publish/config/easy-attachments.php' => config_path('easy-attachments.php'),
         __DIR__.'/../publish/migrations' => base_path('database/migrations'),
       ], 'laravel-easy-attachments');
     }
-    $path = config('laravel-stapler.easy-attachments.la_path');
+    $path = config('easy-attachments.la_path');
     if(!file_exists($path))
     {
       mkdir($path, 0755, true);
@@ -39,7 +39,7 @@ class ServiceProvider extends \Illuminate\Support\ServiceProvider {
 	public function register()
 	{
     $this->mergeConfigFrom(
-        __DIR__.'/../publish/config/easy-attachments.php', 'laravel-stapler.easy-attachments'
+        __DIR__.'/../publish/config/easy-attachments.php', 'easy-attachments'
     );
     
 		$this->app->bind('image.reprocess', function($app)

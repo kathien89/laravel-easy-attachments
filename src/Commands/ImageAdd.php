@@ -41,7 +41,7 @@ class ImageAdd extends Command {
   public function fire()
   {
     $file = $this->argument('url');
-    $klass = config('laravel-stapler.easy-images.image_class');
+    $klass = config('easy-attachments.image_class');
     $i = $klass::fromUrl($file,true);
     echo("Image ID is {$i->id}\n");
   }

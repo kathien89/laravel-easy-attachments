@@ -12,7 +12,7 @@ class LaravelEasyAttachmentsCreate extends Migration {
 	 */
 	public function up()
 	{
-		Schema::create(config('laravel-stapler.easy-attachments.table_name'), function(Blueprint $table)
+		Schema::create(config('easy-attachments.table_name'), function(Blueprint $table)
 		{
 			$table->increments('id');
       $table->string('original_file_name');
@@ -32,7 +32,7 @@ class LaravelEasyAttachmentsCreate extends Migration {
 	 */
 	public function down()
 	{
-		Schema::drop(config('laravel-stapler.easy-attachments.table_name'));
+		Schema::drop(config('easy-attachments.table_name'));
 	}
 
 }
