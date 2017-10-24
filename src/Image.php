@@ -22,9 +22,9 @@ class Image  extends \Eloquent implements StaplerableInterface
     if(!$i)
     {
       $i = new $Image();
+      $i->original_file_name = $url;
+      $i->save();
     }
-    $i->original_file_name = $url;
-    $i->save();
     return $i;
   }
 
