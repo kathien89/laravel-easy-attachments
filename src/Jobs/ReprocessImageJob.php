@@ -15,14 +15,18 @@ class ReprocessImageJob implements ShouldQueue
     public $timeout = 120;
     public $tries = 5;
     public $image;
+    public $force;
+    public $preserveFiles;
     /**
      * Create a new job instance.
      *
      * @return void
      */
-    public function __construct(Image $image)
+    public function __construct(Image $image, $force=false, $preserveFiles=false)
     {
       $this->image = $image;
+      $this->force = $force;
+      $this->preserveFiles = $preserveFiles;
     }
 
     /**
@@ -32,6 +36,9 @@ class ReprocessImageJob implements ShouldQueue
      */
     public function handle()
     {
-      $this->image->reprocess();
+      $save = config('easy-attachments.preserve_original_files');
+      config(['easy-attachments.preserve_original_files'=>$this->preserveFiles]);
+      $this->image->reprocess($this->force);
+      config(['easy-attachments.preserve_original_files'=>$save]);
     }
 }

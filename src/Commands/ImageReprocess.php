@@ -17,7 +17,7 @@ class ImageReprocess extends Command {
    *
    * @var string
    */
-  protected $name = 'images:reprocess';
+  protected $signature = 'images:reprocess {--force} {--queue} {--preserve-files}';
 
   /**
    * The console command description.
@@ -41,21 +41,35 @@ class ImageReprocess extends Command {
    *
    * @return mixed
    */
-  public function fire()
+  public function handle()
   {
+    $force = $this->option('force')!=null;
+    $preserve = $this->option('preserve-files')!=null;
+    $shouldQueue = $this->option('queue')!=null;
+    
+    $this->info(sprintf("Preserving files: %d", $preserve));
+    $this->info(sprintf("Queuing mode: %d", $shouldQueue));
+    $this->info(sprintf("Force mode: %d", $force));
+    
+    $save = config('easy-attachments.preserve_original_files');
+    config(['easy-attachments.preserve_original_files'=>$preserve]);
+
     $Image = config('easy-attachments.image_class');
-    $Image::query()->chunk(50, function($images) {
+    $Image::query()->chunk(50, function($images) use ($force, $preserve, $shouldQueue) {
       foreach($images as $i)
       {
-        if($this->option('force')==null && !$i->should_reprocess()) continue;
-        echo("Processing {$i->url()}\n");
+        
+        if(!$force && !$i->should_reprocess()) continue;
+        $this->info("Processing {$i->original_file_name}");
         try
         {
-          if(config('easy-attachments.use_queue'))
+          if($shouldQueue)
           {
-            ReprocessImageJob::dispatch($i);
+            $this->info("...queuing");
+            ReprocessImageJob::dispatch($i, $force, $preserve);
           } else {
-            $i->reprocess();
+            $this->info("...reprocessing");
+            $i->reprocess($force);
           }
         } catch (FileNotFoundException $e)
         {
@@ -63,31 +77,7 @@ class ImageReprocess extends Command {
         }
       }
     });
-  }
-  
 
-  /**
-   * Get the console command arguments.
-   *
-   * @return array
-   */
-  protected function getArguments()
-  {
-    return array(
-#      array('example', InputArgument::REQUIRED, 'An example argument.'),
-    );
+    config(['easy-attachments.preserve_original_files'=>$save]);
   }
-
-  /**
-   * Get the console command options.
-   *
-   * @return array
-   */
-  protected function getOptions()
-  {
-    return array(
-      array('force', null, InputOption::VALUE_OPTIONAL, 'Force reprocessing.', null),
-    );
-  }
-
 }

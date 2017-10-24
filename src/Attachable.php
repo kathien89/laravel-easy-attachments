@@ -3,8 +3,12 @@
 namespace BenAllfree\LaravelEasyAttachments;
 trait Attachable
 {
+  static protected $attachable = [];
+  
   public function hasSetMutator($key)
   {
+    if(!$this->isAttachable($key)) return parent::hasSetMutator($key);
+    
     preg_match('/(.*)_(image|file)_path$/', $key, $matches);
     if(count($matches)>0)
     {
@@ -15,7 +19,8 @@ trait Attachable
   
   public function setAttribute($key, $value)
   {
-    dd($key);
+    if(!$this->isAttachable($key)) return parent::setAttribute($key, $value);
+    
     preg_match('/(.*)_(image|file)(_la)?$/', $key, $matches);
     if(count($matches)>0)
     {
@@ -75,8 +80,17 @@ trait Attachable
     return parent::setAttribute($key, $value);
   }
   
+  private function isAttachable($key)
+  {
+    $isAttachable = array_search($key, static::$attachable)!==false;
+    if($isAttachable) throw new \Exception($key);
+    return $isAttachable;
+  }
+  
   public function hasGetMutator($key)
   {
+    if(!$this->isAttachable($key)) return parent::hasGetMutator($key);
+    
     preg_match('/(.*)_(?:image|file)(?:_la)?$/', $key, $matches);
     if(count($matches)>0)
     {
@@ -92,6 +106,8 @@ trait Attachable
   
   public function mutateAttribute($key, $value)
   {
+    if(!$this->isAttachable($key)) return parent::mutateAttribute($key, $value);;
+    
     preg_match('/(.*)_(image|file)(_la)?$/', $key, $matches);
     if(count($matches)>0)
     {
@@ -133,6 +149,8 @@ trait Attachable
   
   public function __call($name, $args)
   {
+    if(!$this->isAttachable($name)) return parent::__call($name, $args);
+    
     preg_match('/(.*)(Image|File)$/', $name, $matches);
     if(count($matches)==0) return parent::__call($name, $args);
     list($match_data, $field_name_prefix, $field_type) = $matches;
@@ -154,12 +172,12 @@ trait Attachable
   
   public function getRelationValue($key)
   {
-      if ($this->relationLoaded($key)) {
-        return $this->relations[$key];
-      }
+    if ($this->relationLoaded($key)) {
+      return $this->relations[$key];
+    }
 
-      if (method_exists($this, $key) || preg_match('/(.*)(Image|File)$/', $key)) {
-        return $this->getRelationshipFromMethod($key);
-      }
+    if (method_exists($this, $key) || $this->isAttachable($key)) {
+      return $this->getRelationshipFromMethod($key);
+    }
   }
 }

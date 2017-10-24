@@ -7,6 +7,8 @@ use BenAllfree\LaravelEasyAttachments\Jobs\ProcessImageJob;
 
 class Image  extends \Eloquent implements StaplerableInterface 
 {
+  static protected $mode = 'move';
+
   use EloquentTrait {
     boot as attachmentBoot;
   }
@@ -70,7 +72,7 @@ class Image  extends \Eloquent implements StaplerableInterface
   
   public function should_reprocess()
   {
-    return $this->sizes_md5 != self::style_md5();
+    return !$this->att_file_name || $this->sizes_md5 != self::style_md5();
   }
   
   public static function style_md5()
@@ -88,15 +90,19 @@ class Image  extends \Eloquent implements StaplerableInterface
     return $styles;
   }
   
-  function reprocess($should_check_first=false)
+  function reprocess($force=false)
   {
-    if($should_check_first)
+    if(!$force)
     {
       if(!$this->should_reprocess()) return;
     }
-    $ret = $this->att->reprocess();
+    if(!$this->att->originalFilename())
+    {
+      $this->att = $this->original_file_name;
+    } else {
+      $this->att->reprocess();
+    }
     $this->save();
-    return $ret;
   }
   
   static function queue($any)
@@ -105,6 +111,7 @@ class Image  extends \Eloquent implements StaplerableInterface
     if(is_string($any))
     {
       $i = $Image::queueFromUrl($any);
+      return $i;
     }
   }
   
