@@ -248,6 +248,8 @@ Eject the config files:
 
 `image_class` and `attachment_class` control what class is instantiated for images and plain attachments. If you override the default `Image` and `Attachment` classes and want Laravel Easy Images to instantiate objects using your superclasses, specify them here.
 
+`do_not_delete` is an array of file paths which, if matched, will not be deleted on attachment. The default behavior of Stapler is to move files rather than copy them. This prevents deletion. [fnmatch](http://php.net/manual/en/function.fnmatch.php) is used to evaluate path matches.
+
 Optionally add an alias for the `\Image` and `\Attachment` classes in `config/app.php`
 
     'Image' => BenAllfree\LaravelEasyAttachments\Image::class,

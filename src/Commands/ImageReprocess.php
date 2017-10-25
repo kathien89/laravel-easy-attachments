@@ -51,9 +51,6 @@ class ImageReprocess extends Command {
     $this->info(sprintf("Queuing mode: %d", $shouldQueue));
     $this->info(sprintf("Force mode: %d", $force));
     
-    $save = config('easy-attachments.preserve_original_files');
-    config(['easy-attachments.preserve_original_files'=>$preserve]);
-
     $Image = config('easy-attachments.image_class');
     $Image::query()->chunk(50, function($images) use ($force, $preserve, $shouldQueue) {
       foreach($images as $i)
@@ -77,7 +74,5 @@ class ImageReprocess extends Command {
         }
       }
     });
-
-    config(['easy-attachments.preserve_original_files'=>$save]);
   }
 }

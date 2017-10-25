@@ -123,13 +123,16 @@ class Image  extends \Eloquent implements StaplerableInterface
       $obj->sizes_md5 = Image::style_md5();
     });
     static::saved(function($obj) {
-      if(
-        config('easy-attachments.preserve_original_files') && 
-        file_exists(dirname($obj->original_file_name)) &&
-        !file_exists($obj->original_file_name)
-      )
+      $dnd = config('easy-attachments.do_not_delete');
+      foreach($dnd as $pat)
       {
-        @copy($obj->att->path('original'), $obj->original_file_name);
+        $dst = $obj->original_file_name;
+        if(fnmatch($pat, $dst) && file_exists(dirname($dst)) && !file_exists($dst))
+        {
+          $src = $obj->att->path('original');
+          copy($src, $dst);
+          return;
+        }
       }
     });
   }
